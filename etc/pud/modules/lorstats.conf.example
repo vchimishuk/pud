@@ -1,0 +1,5 @@
+module = "lorstats"
+cookie = ""
+db = "/var/lib/pud/lorstats.db"
+graphite.host = "graphite.localdomain"
+graphite.prefix = "lor"

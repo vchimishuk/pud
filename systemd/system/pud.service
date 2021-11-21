@@ -1,0 +1,11 @@
+[Unit]
+Description=Python utilities supervisor daemon
+
+[Service]
+ExecStart=/usr/bin/python3 -m pud
+Restart=always
+User=daemon
+Group=daemon
+
+[Install]
+WantedBy=multi-user.target
