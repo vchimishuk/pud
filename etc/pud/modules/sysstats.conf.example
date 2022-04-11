@@ -1,0 +1,3 @@
+module = "sysstats"
+graphite.host = "graphite.localdomain"
+graphite.prefix = "host.j4105"
