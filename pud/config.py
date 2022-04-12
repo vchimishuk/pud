@@ -29,13 +29,21 @@ class Config(dict):
         self.path = path
 
 
-def get_required(config, name, prop_type):
+def get(config, name, prop_type, default=None):
     if name not in config:
-        raise MissingError(name)
+        return default
     if type(config[name]) is not prop_type:
         raise TypeError(name, config[name], prop_type)
 
     return config[name]
+
+
+def get_required(config, name, prop_type):
+    v = get(config, name, prop_type)
+    if v == None:
+        raise MissingError(name)
+
+    return v
 
 
 def isstr(s):

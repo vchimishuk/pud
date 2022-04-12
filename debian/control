@@ -8,5 +8,5 @@ Homepage: https://github.com/vchimishuk/pud
 
 Package: pud
 Architecture: all
-Depends: python3-croniter, python-pygraphite
+Depends: python3-croniter, python3-psutil, python-pygraphite
 Description: Python utilities supervisor daemon

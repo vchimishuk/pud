@@ -1,3 +1,6 @@
 module = "sysstats"
 graphite.host = "graphite.localdomain"
 graphite.prefix = "host.j4105"
+graphite.interval = 60
+hdd.sda1.dev = "/dev/sda1"
+hdd.sda2.dev = "/dev/sda2"
