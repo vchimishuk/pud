@@ -1,5 +1,9 @@
+* Create system-wide configuration file. Module-specific property should
+  overwrite system-wide property. The idea is we can have a single place
+  to put Graphite configuration.
 * Graphite port is hardcoded for LorStats and SysStats modules.
   It should be configurable.
 * Improve log messages to avoid such Python-specific information.
   Cron task <bound method LorStats.stats of <pud.modules.lorstats.lorstats.LorStats object at 0x7f6caa015940>> finished succesfuly.
 * Improve property access API for Config object.
+* Dynamically register graphite senders depends on interval configuration.

@@ -1,0 +1,5 @@
+module = "transmission"
+graphite.host = "graphite.localdomain"
+graphite.prefix = "transmission"
+transmission.host = "localhost"
+transmission.port = 9091
