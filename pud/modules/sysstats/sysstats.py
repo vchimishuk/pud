@@ -24,11 +24,19 @@ class SysStats(pud.Module):
                 if d not in mnts:
                     raise ValueError('device not found: ' + d)
                 self.graphite.gauge('hdd.{}.total'.format(m.group(1)),
-                                    self.gauge_hdd_total(mnts[d]))
+                                    self.gauge_hdd(mnts[d], 'total'))
                 self.graphite.gauge('hdd.{}.used'.format(m.group(1)),
-                                    self.gauge_hdd_used(mnts[d]))
+                                    self.gauge_hdd(mnts[d], 'used'))
                 self.graphite.gauge('hdd.{}.free'.format(m.group(1)),
-                                    self.gauge_hdd_free(mnts[d]))
+                                    self.gauge_hdd(mnts[d], 'free'))
+
+        for iface in psutil.net_io_counters(True).keys():
+            if iface == 'lo':
+                continue
+            self.graphite.gauge('net.{}.data_rx'.format(iface),
+                                self.gauge_net(iface, 'bytes_recv'))
+            self.graphite.gauge('net.{}.data_tx'.format(iface),
+                                self.gauge_net(iface, 'bytes_sent'))
 
     def close(self):
         self.graphite.close()
@@ -40,11 +48,9 @@ class SysStats(pud.Module):
         with open('/proc/uptime', 'r') as f:
             return int(float(f.readline().split()[0]))
 
-    def gauge_hdd_total(self, dev):
-        return lambda: psutil.disk_usage(dev).total
+    def gauge_hdd(self, dev, metric):
+        return lambda: getattr(psutil.disk_usage(dev), metric)
 
-    def gauge_hdd_used(self, dev):
-        return lambda: psutil.disk_usage(dev).used
-
-    def gauge_hdd_free(self, dev):
-        return lambda: psutil.disk_usage(dev).free
+    def gauge_net(self, iface, metric):
+        return lambda: getattr(psutil.net_io_counters(True)[iface],
+                               metric)
