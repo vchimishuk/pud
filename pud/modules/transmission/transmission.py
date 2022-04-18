@@ -25,30 +25,33 @@ class Transmission(pud.Module):
 
     @pud.cron('* * * * *')
     def update_stats(self):
-        st = self.get_stats()
-        with self.statsmu:
-            self.stats = st
+        try:
+            st = self.get_stats()
+            with self.statsmu:
+                self.stats = st
 
-        self.register_gauge('speed_rx')
-        self.register_gauge('speed_tx')
-        self.register_gauge('data_rx')
-        self.register_gauge('data_tx')
-        self.register_gauge('torrents_total')
-        self.register_gauge('torrents_active')
+            self.register_gauge('speed_rx')
+            self.register_gauge('speed_tx')
+            self.register_gauge('data_rx')
+            self.register_gauge('data_tx')
+            self.register_gauge('torrents_total')
+            self.register_gauge('torrents_active')
+        except transmission_rpc.TransmissionError as e:
+            self.logger.info('%s', e)
+            with self.statsmu:
+                self.stats['speed_rx'] = 0
+                self.stats['speed_tx'] = 0
 
     def get_stats(self):
-        try:
-            tr = transmission_rpc.Client(host=self.host, port=self.port)
-            stats = dict(tr.session_stats().items())
+        tr = transmission_rpc.Client(host=self.host, port=self.port)
+        stats = dict(tr.session_stats().items())
 
-            return {'speed_rx': stats['downloadSpeed'],
-                    'speed_tx': stats['uploadSpeed'],
-                    'data_rx': stats['cumulative_stats']['downloadedBytes'],
-                    'data_tx': stats['cumulative_stats']['uploadedBytes'],
-                    'torrents_total': stats['torrentCount'],
-                    'torrents_active': stats['activeTorrentCount']}
-        except transmission_rpc.TransmissionError as e:
-            raise Exception(e) from None
+        return {'speed_rx': stats['downloadSpeed'],
+                'speed_tx': stats['uploadSpeed'],
+                'data_rx': stats['cumulative_stats']['downloadedBytes'],
+                'data_tx': stats['cumulative_stats']['uploadedBytes'],
+                'torrents_total': stats['torrentCount'],
+                'torrents_active': stats['activeTorrentCount']}
 
     def register_gauge(self, name):
         def func():
