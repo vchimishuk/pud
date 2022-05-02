@@ -43,15 +43,15 @@ class Transmission(pud.Module):
                 self.stats['speed_tx'] = 0
 
     def get_stats(self):
-        tr = transmission_rpc.Client(host=self.host, port=self.port)
-        stats = dict(tr.session_stats().items())
+        with transmission_rpc.Client(host=self.host, port=self.port) as tr:
+            stats = dict(tr.session_stats().items())
 
-        return {'speed_rx': stats['downloadSpeed'],
-                'speed_tx': stats['uploadSpeed'],
-                'data_rx': stats['cumulative_stats']['downloadedBytes'],
-                'data_tx': stats['cumulative_stats']['uploadedBytes'],
-                'torrents_total': stats['torrentCount'],
-                'torrents_active': stats['activeTorrentCount']}
+            return {'speed_rx': stats['downloadSpeed'],
+                    'speed_tx': stats['uploadSpeed'],
+                    'data_rx': stats['cumulative_stats']['downloadedBytes'],
+                    'data_tx': stats['cumulative_stats']['uploadedBytes'],
+                    'torrents_total': stats['torrentCount'],
+                    'torrents_active': stats['activeTorrentCount']}
 
     def register_gauge(self, name):
         def func():
