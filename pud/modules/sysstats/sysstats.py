@@ -15,6 +15,14 @@ class SysStats(pud.Module):
                                             prefix=prefix,
                                             interval=interval)
 
+        self.register_metrics()
+
+    def close(self):
+        self.graphite.close()
+
+    # Periodically check for new devices.
+    @pud.cron('*/5 * * * *')
+    def register_metrics(self):
         self.graphite.gauge('uptime', self.uptime)
 
         mnts = self.mountpoints()
@@ -22,13 +30,14 @@ class SysStats(pud.Module):
             m = re.search(r'hdd\.(.+)\.dev', n)
             if m:
                 if d not in mnts:
-                    raise ValueError('device not found: ' + d)
-                self.graphite.gauge('hdd.{}.total'.format(m.group(1)),
-                                    self.gauge_hdd(mnts[d], 'total'))
-                self.graphite.gauge('hdd.{}.used'.format(m.group(1)),
-                                    self.gauge_hdd(mnts[d], 'used'))
-                self.graphite.gauge('hdd.{}.free'.format(m.group(1)),
-                                    self.gauge_hdd(mnts[d], 'free'))
+                    self.logger.warn('Mountpoint for %d device not found.', d)
+                else:
+                    self.graphite.gauge('hdd.{}.total'.format(m.group(1)),
+                                        self.gauge_hdd(mnts[d], 'total'))
+                    self.graphite.gauge('hdd.{}.used'.format(m.group(1)),
+                                        self.gauge_hdd(mnts[d], 'used'))
+                    self.graphite.gauge('hdd.{}.free'.format(m.group(1)),
+                                        self.gauge_hdd(mnts[d], 'free'))
 
         for iface in psutil.net_io_counters(True).keys():
             if iface == 'lo':
@@ -37,9 +46,6 @@ class SysStats(pud.Module):
                                 self.gauge_net(iface, 'bytes_recv'))
             self.graphite.gauge('net.{}.data_tx'.format(iface),
                                 self.gauge_net(iface, 'bytes_sent'))
-
-    def close(self):
-        self.graphite.close()
 
     def mountpoints(self):
         return {x.device: x.mountpoint for x in psutil.disk_partitions()}
@@ -52,5 +58,11 @@ class SysStats(pud.Module):
         return lambda: getattr(psutil.disk_usage(dev), metric)
 
     def gauge_net(self, iface, metric):
-        return lambda: getattr(psutil.net_io_counters(True)[iface],
-                               metric)
+        def f():
+            c = psutil.net_io_counters(True)
+            if iface not in c:
+                return None
+
+            return getattr(c[iface], metric)
+
+        return f
