@@ -14,7 +14,7 @@ import pud.config
 CONFIG_DIR = '/etc/pud'
 LOGGER_DIR = '/var/log/pud'
 LOGGER_FORMAT = '%(asctime)s %(levelname)-8s %(message)s'
-LOGGER_LEVEL = logging.DEBUG
+LOGGER_LEVEL = logging.INFO
 
 
 def get_logger(mod='pud'):
@@ -75,7 +75,7 @@ class TaskThread(threading.Thread):
                     logger.exception('Long task %s failed. Retrying.', target)
                 time.sleep(1)
 
-            logger.debug('Long task %s finished successfuly.', target)
+            logger.info('Long task %s finished successfuly.', target)
 
         return wrapper
 
@@ -92,7 +92,7 @@ class CronThread(threading.Thread):
         except Exception as e:
             logger.exception('Cron task %s failed.', t)
         else:
-            logger.debug('Cron task %s finished succesfuly.', t)
+            logger.info('Cron task %s finished succesfuly.', t)
 
 
 def isexpired(t):
@@ -168,7 +168,7 @@ def run():
         if 'module' not in cfg:
             die('Required `module` property is missing in %s', cfg.path)
         name = cfg['module']
-        logger.debug('Initializing %s module.', name)
+        logger.info('Initializing %s module.', name) # TODO: Info level. Check others.
         try:
             mod_cls = module(name)
             mod = mod_cls(term=term, logger=get_logger(name), config=cfg)
@@ -177,12 +177,12 @@ def run():
 
         for meth in module_tasks(mod):
             tasks.append(meth)
-            logger.debug('Registered %s long task.', meth)
+            logger.info('Registered %s long task.', meth)
 
         for meth, expr in module_crons(mod).items():
             try:
                 crons[meth] = croniter.croniter(expr)
-                logger.debug('Registered %s cron task.', meth)
+                logger.info('Registered %s cron task.', meth)
             except croniter.CroniterBadCronError as e:
                 die('Parsing cron expression for %s failed: %s', meth, e)
 
@@ -202,7 +202,7 @@ def run():
             left = runtime - time.time()
 
             if left > 0:
-                logger.debug('Sleeping for %d seconds till the next run of %s.',
+                logger.info('Sleeping for %d seconds till the next run of %s.',
                              left, meth)
                 if term.wait(left):
                     break
