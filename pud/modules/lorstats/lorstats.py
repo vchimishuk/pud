@@ -69,6 +69,7 @@ class LorStats(pud.Module):
 
         self.graphite.gauge('score', self.st.getscore)
         self.graphite.gauge('comments', self.st.getcomments)
+        self.graphite.counter('update').inc()
 
     def dbexec(self, sql, params=()):
         conn = sqlite3.connect(self.dbpath)
