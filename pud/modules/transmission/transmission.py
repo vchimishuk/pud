@@ -34,6 +34,8 @@ class Transmission(pud.Module):
             self.register_gauge('speed_tx')
             self.register_gauge('data_rx')
             self.register_gauge('data_tx')
+            self.register_gauge('uptime_total')
+            self.register_gauge('uptime')
             self.register_gauge('torrents_total')
             self.register_gauge('torrents_active')
         except transmission_rpc.TransmissionError as e:
@@ -50,6 +52,8 @@ class Transmission(pud.Module):
                     'speed_tx': stats['uploadSpeed'],
                     'data_rx': stats['cumulative_stats']['downloadedBytes'],
                     'data_tx': stats['cumulative_stats']['uploadedBytes'],
+                    'uptime_total': stats['cumulative_stats']['secondsActive'],
+                    'uptime': stats['current_stats']['secondsActive'],
                     'torrents_total': stats['torrentCount'],
                     'torrents_active': stats['activeTorrentCount']}
 
