@@ -5,6 +5,14 @@ import pud.modules
 import pud.config
 
 
+def tuples(obj, names):
+    l = []
+    for n, p in names.items():
+        l.append((n, getattr(obj, p)))
+
+    return l
+
+
 class SysStats(pud.Module):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -23,8 +31,6 @@ class SysStats(pud.Module):
     # Periodically check for new devices.
     @pud.cron('*/5 * * * *')
     def register_metrics(self):
-        self.graphite.gauge('uptime', self.uptime)
-
         mnts = self.mountpoints()
         for n, d in self.config.items():
             m = re.search(r'hdd\.(.+)\.dev', n)
@@ -32,20 +38,17 @@ class SysStats(pud.Module):
                 if d not in mnts:
                     self.logger.warn('Mountpoint for %d device not found.', d)
                 else:
-                    self.graphite.gauge('hdd.{}.total'.format(m.group(1)),
-                                        self.gauge_hdd(mnts[d], 'total'))
-                    self.graphite.gauge('hdd.{}.used'.format(m.group(1)),
-                                        self.gauge_hdd(mnts[d], 'used'))
-                    self.graphite.gauge('hdd.{}.free'.format(m.group(1)),
-                                        self.gauge_hdd(mnts[d], 'free'))
+                    self.graphite.gauge('hdd.{}'.format(m.group(1)),
+                                        self.hdd(mnts[d]))
 
         for iface in psutil.net_io_counters(True).keys():
             if iface == 'lo':
                 continue
-            self.graphite.gauge('net.{}.data_rx'.format(iface),
-                                self.gauge_net(iface, 'bytes_recv'))
-            self.graphite.gauge('net.{}.data_tx'.format(iface),
-                                self.gauge_net(iface, 'bytes_sent'))
+            self.graphite.gauges('net.{}'.format(iface), self.net(iface))
+
+        self.graphite.gauges('cpu', self.cpu)
+        self.graphite.gauges('mem', self.mem)
+        self.graphite.gauge('uptime', self.uptime)
 
     def mountpoints(self):
         return {x.device: x.mountpoint for x in psutil.disk_partitions()}
@@ -54,15 +57,46 @@ class SysStats(pud.Module):
         with open('/proc/uptime', 'r') as f:
             return int(float(f.readline().split()[0]))
 
-    def gauge_hdd(self, dev, metric):
-        return lambda: getattr(psutil.disk_usage(dev), metric)
+    def hdd(self, dev):
+        def f():
+            st = psutil.disk_usage(dev)
 
-    def gauge_net(self, iface, metric):
+            return tuples(st,
+                          {'total': 'total',
+                           'used': 'used',
+                           'free': 'free'})
+
+        return f
+
+    def net(self, iface):
         def f():
             c = psutil.net_io_counters(True)
             if iface not in c:
                 return None
 
-            return getattr(c[iface], metric)
+            return tuples(c[iface],
+                          {'data_rx': 'bytes_recv',
+                           'data_tx': 'bytes_sent'})
 
         return f
+
+    def cpu(self):
+        times = tuples(psutil.cpu_times(),
+                       {'user': 'user',
+                        'system': 'system',
+                        'idle': 'idle',
+                        'iowait': 'iowait'})
+        st = psutil.getloadavg()
+        la = [('la1', st[0]), ('la5', st[1]), ('la15', st[2])]
+
+        return times + la
+
+    def mem(self):
+        return tuples(psutil.virtual_memory(),
+                      {'available': 'available',
+                       'buffers': 'buffers',
+                       'cached': 'cached',
+                       'free': 'free',
+                       'shared': 'shared',
+                       'total': 'total',
+                       'used': 'used'})
