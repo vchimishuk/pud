@@ -4,7 +4,7 @@ import datetime
 import threading
 import http.client
 import sqlite3
-import pygraphite
+import pyrite
 import pud
 
 
@@ -41,7 +41,7 @@ class LorStats(pud.Module):
 
         ghost = pud.config.get_required(self.config, 'graphite.host', str)
         gprefix = pud.config.get_required(self.config, 'graphite.prefix', str)
-        self.graphite = pygraphite.Graphite(ghost, 2003, prefix=gprefix)
+        self.graphite = pyrite.Pyrite(ghost, 2003, prefix=gprefix)
 
         self.st = Stats()
         self.dbexec('''

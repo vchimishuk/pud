@@ -1,5 +1,5 @@
 import threading
-import pygraphite
+import pyrite
 import transmission_rpc
 import pud.modules
 import pud.config
@@ -11,7 +11,7 @@ class Transmission(pud.Module):
         ghost = pud.config.get_required(self.config, 'graphite.host', str)
         gprefix = pud.config.get_required(self.config, 'graphite.prefix', str)
         ginterval = pud.config.get(self.config, 'graphite.interval', int, 60)
-        self.graphite = pygraphite.Graphite(ghost, 2003,
+        self.graphite = pyrite.Pyrite(ghost, 2003,
                                             prefix=gprefix,
                                             interval=ginterval)
         self.host = pud.config.get_required(self.config, 'transmission.host', str)

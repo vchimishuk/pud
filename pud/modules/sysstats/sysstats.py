@@ -1,6 +1,6 @@
 import re
 import psutil
-import pygraphite
+import pyrite
 import pud.modules
 import pud.config
 
@@ -11,9 +11,9 @@ class SysStats(pud.Module):
         host = pud.config.get_required(self.config, 'graphite.host', str)
         prefix = pud.config.get_required(self.config, 'graphite.prefix', str)
         interval = pud.config.get(self.config, 'graphite.interval', int, 60)
-        self.graphite = pygraphite.Graphite(host, 2003,
-                                            prefix=prefix,
-                                            interval=interval)
+        self.graphite = pyrite.Pyrite(host, 2003,
+                                      prefix=prefix,
+                                      interval=interval)
 
         self.register_metrics()
 
