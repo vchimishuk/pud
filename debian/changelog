@@ -1,3 +1,10 @@
+pud (0.4.0) stable; urgency=low
+
+  * Add CPU and memory metrics into SysStats module.
+  * Migrate to pyrite.
+
+ -- Viacheslav Chimishuk <vchimishuk@yandex.ru>  Sun, 10 Sep 2022 18:49:00 +0300
+
 pud (0.3.0) stable; urgency=low
 
   * Add transmission.uptime and transmission.uptime_total Graphite metrics.
