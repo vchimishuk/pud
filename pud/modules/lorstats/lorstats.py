@@ -52,6 +52,8 @@ class LorStats(pud.Module):
         )
         ''')
 
+        self.stats()
+
     def close(self):
         self.graphite.close()
 
