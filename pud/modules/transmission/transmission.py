@@ -39,7 +39,7 @@ class Transmission(pud.Module):
             self.register_gauge('torrents_total')
             self.register_gauge('torrents_active')
         except transmission_rpc.TransmissionError as e:
-            self.logger.info('%s', e)
+            self.logger.error('%s', e)
             with self.statsmu:
                 self.stats['speed_rx'] = 0
                 self.stats['speed_tx'] = 0
