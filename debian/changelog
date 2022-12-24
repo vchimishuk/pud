@@ -1,3 +1,10 @@
+pud (0.4.3) stable; urgency=low
+
+  * Add 10 seconds delay betwee service restarts.
+  * Do not fail LorStats initialization when network is down.
+
+ -- Viacheslav Chimishuk <vchimishuk@yandex.ru>  Sat, 24 Dec 2022 16:07:00 +0200
+
 pud (0.4.2) stable; urgency=low
 
   * Log Transmission connection error with ERROR log level
