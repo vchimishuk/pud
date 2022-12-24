@@ -4,6 +4,7 @@ Description=Python utilities supervisor daemon
 [Service]
 ExecStart=/usr/bin/python3 -m pud
 Restart=always
+RestartSec=10s
 User=daemon
 Group=daemon
 
