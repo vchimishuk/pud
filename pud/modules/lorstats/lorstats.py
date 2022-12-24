@@ -52,7 +52,10 @@ class LorStats(pud.Module):
         )
         ''')
 
-        self.stats()
+        try:
+            self.stats()
+        except e:
+            self.logger.error('failed to get stats: %s', e)
 
     def close(self):
         self.graphite.close()
