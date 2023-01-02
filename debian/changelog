@@ -1,3 +1,9 @@
+pud (0.5.0) stable; urgency=low
+
+  * Add PeerStats module.
+
+ -- Viacheslav Chimishuk <vchimishuk@yandex.ru>  Mon, 02 Jan 2023 18:17:00 +0200
+
 pud (0.4.3) stable; urgency=low
 
   * Add 10 seconds delay betwee service restarts.
