@@ -1,0 +1,8 @@
+module = "peerstats"
+transmission.host = "localhost"
+transmission.port = 9091
+postgres.host="localhost"
+postgres.port=5432
+postgres.user="vchimishuk"
+postgres.pass="system"
+postgres.db="peerstats"
