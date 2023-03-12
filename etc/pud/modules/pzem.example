@@ -1,0 +1,4 @@
+module = "pzem"
+dev = "/dev/ttyUSB0"
+graphite.host = "graphite.localdomain"
+graphite.prefix = ""

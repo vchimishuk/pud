@@ -8,5 +8,6 @@ Homepage: https://github.com/vchimishuk/pud
 
 Package: pud
 Architecture: all
-Depends: python3-croniter, python3-psutil, python-pyrite, python3-transmission-rpc
+Depends: python3-croniter
+Suggests: python3-psutil, python-pyrite, python3-transmission-rpc, pzem
 Description: Python utilities supervisor daemon

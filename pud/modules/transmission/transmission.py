@@ -12,8 +12,8 @@ class Transmission(pud.Module):
         gprefix = pud.config.get_required(self.config, 'graphite.prefix', str)
         ginterval = pud.config.get(self.config, 'graphite.interval', int, 60)
         self.graphite = pyrite.Pyrite(ghost, 2003,
-                                            prefix=gprefix,
-                                            interval=ginterval)
+                                      prefix=gprefix,
+                                      interval=ginterval)
         self.host = pud.config.get_required(self.config, 'transmission.host', str)
         self.port = pud.config.get_required(self.config, 'transmission.port', int)
 

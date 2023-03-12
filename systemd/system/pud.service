@@ -6,7 +6,7 @@ ExecStart=/usr/bin/python3 -m pud
 Restart=always
 RestartSec=10s
 User=daemon
-Group=daemon
+Group=dialout
 
 [Install]
 WantedBy=multi-user.target
