@@ -2,8 +2,8 @@ import time
 import json
 import collections
 import http.client
-import psycopg2
 from psycopg2.extras import NamedTupleCursor
+from psycopg2.pool import ThreadedConnectionPool
 import pud
 
 
@@ -92,13 +92,15 @@ class PeerStats(pud.Module):
         pguser = pud.config.get_required(self.config, 'postgres.user', str)
         pgpass = pud.config.get_required(self.config, 'postgres.pass', str)
         pgdb = pud.config.get_required(self.config, 'postgres.db', str)
-        self.conn = psycopg2.connect(dbname=pgdb, user=pguser,
-                                     password=pgpass, host=pghost,
-                                     port=pgport)
-        self.conn.autocommit = True
+        self.psql = ThreadedConnectionPool(1, 1, dbname=pgdb, user=pguser,
+                                           password=pgpass, host=pghost,
+                                           port=pgport)
 
         self.clients = self.get_clients()
         self.torrents = self.get_torrents()
+
+    def close(self):
+        self.psql.closeall()
 
     @pud.cron('* * * * * */10')
     def update_stats(self):
@@ -109,25 +111,40 @@ class PeerStats(pud.Module):
 
     def get_clients(self):
         cls = {}
-        with self.conn.cursor(cursor_factory=NamedTupleCursor) as cur:
-            cur.execute('SELECT id, name FROM clients')
-            for r in cur:
-                cls[r.name] = r.id
+        conn = self.psql.getconn()
+        try:
+            with conn:
+                with conn.cursor(cursor_factory=NamedTupleCursor) as cur:
+                    cur.execute('SELECT id, name FROM clients')
+                    for r in cur:
+                        cls[r.name] = r.id
+        finally:
+            self.psql.putconn(conn)
 
         return cls
 
     def add_client(self, name):
         s = 'INSERT INTO clients (name) VALUES (%(name)s) RETURNING id'
-        with self.conn.cursor(cursor_factory=NamedTupleCursor) as cur:
-            cur.execute(s, {'name': name})
-            return cur.fetchone().id
+        conn = self.psql.getconn()
+        try:
+            with conn:
+                with conn.cursor(cursor_factory=NamedTupleCursor) as cur:
+                    cur.execute(s, {'name': name})
+                    return cur.fetchone().id
+        finally:
+            self.psql.putconn(conn)
 
     def get_torrents(self):
         trs = {}
-        with self.conn.cursor(cursor_factory=NamedTupleCursor) as cur:
-            cur.execute('SELECT id, hash FROM torrents')
-            for r in cur:
-                trs[r.hash] = r.id
+        conn = self.psql.getconn()
+        try:
+            with conn:
+                with conn.cursor(cursor_factory=NamedTupleCursor) as cur:
+                    cur.execute('SELECT id, hash FROM torrents')
+                    for r in cur:
+                        trs[r.hash] = r.id
+        finally:
+            self.psql.putconn(conn)
 
         return trs
 
@@ -136,11 +153,16 @@ class PeerStats(pud.Module):
         INSERT INTO torrents (hash, name, comment)
         VALUES (%(hash)s, %(name)s, %(comment)s) RETURNING id
         '''
-        with self.conn.cursor(cursor_factory=NamedTupleCursor) as cur:
-            cur.execute(s, {'hash': torrent.hash,
-                            'name': torrent.name,
-                            'comment': torrent.comment})
-            return cur.fetchone().id
+        conn = self.psql.getconn()
+        try:
+            with conn:
+                with conn.cursor(cursor_factory=NamedTupleCursor) as cur:
+                    cur.execute(s, {'hash': torrent.hash,
+                                    'name': torrent.name,
+                                    'comment': torrent.comment})
+                    return cur.fetchone().id
+        finally:
+            self.psql.putconn(conn)
 
     def add_peer(self, time, torrent, peer):
         if peer.client not in self.clients:
@@ -152,9 +174,14 @@ class PeerStats(pud.Module):
         INSERT INTO peers (time, torrent, ip, client, speed)
         VALUES (%(time)s, %(torrent)s, %(ip)s, %(client)s, %(speed)s)
         '''
-        with self.conn.cursor(cursor_factory=NamedTupleCursor) as cur:
-            cur.execute(s, {'time': time,
-                            'torrent': self.torrents[torrent.hash],
-                            'ip': peer.ip,
-                            'client': self.clients[peer.client],
-                            'speed': peer.speed})
+        conn = self.psql.getconn()
+        try:
+            with conn:
+                with conn.cursor(cursor_factory=NamedTupleCursor) as cur:
+                    cur.execute(s, {'time': time,
+                                    'torrent': self.torrents[torrent.hash],
+                                    'ip': peer.ip,
+                                    'client': self.clients[peer.client],
+                                    'speed': peer.speed})
+        finally:
+            self.psql.putconn(conn)
