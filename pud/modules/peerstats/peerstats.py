@@ -1,36 +1,44 @@
+# CREATE TABLE torrents (
+#     id UInt32,
+#     hash FixedString(40),
+#     name String,
+#     comment String
+# )
+# ENGINE = MergeTree()
+# ORDER BY (id);
+#
+# CREATE TABLE clients (
+#     id UInt32,
+#     name String
+# )
+# ENGINE = MergeTree()
+# ORDER BY (id);
+#
+# CREATE TABLE peers (
+#     time DateTime('UTC'),
+#     torrent UInt32,
+#     ip IPv4,
+#     client UInt32,
+#     speed UInt32,
+#     country FixedString(2),
+#     lat Float32,
+#     lon Float32
+# )
+# ENGINE = MergeTree()
+# ORDER BY (time);
+
 import time
 import json
 import collections
 import http.client
-from psycopg2.extras import NamedTupleCursor
-from psycopg2.pool import ThreadedConnectionPool
+from clickhouse_driver import Client
+import geoip2.database
 import pud
-
-
-# CREATE TABLE torrents (
-#     id SERIAL PRIMARY KEY,
-#     hash VARCHAR(255) NOT NULL,
-#     name VARCHAR(255) NOT NULL,
-#     comment VARCHAR(255) NOT NULL
-# );
-
-# CREATE TABLE clients (
-#     id SERIAL PRIMARY KEY,
-#     name VARCHAR(255) NOT NULL
-# );
-
-# CREATE TABLE peers (
-#     id BIGSERIAL PRIMARY KEY,
-#     time BIGINT NOT NULL,
-#     torrent INT NOT NULL REFERENCES torrents(id),
-#     ip VARCHAR(255) NOT NULL,
-#     client INT NOT NULL REFERENCES clients(id),
-#     speed INT NOT NULL
-# );
 
 
 Torrent = collections.namedtuple('Torrent', ['hash', 'name', 'comment', 'peers'])
 Peer = collections.namedtuple('Peer', ['ip', 'client', 'speed'])
+Geo = collections.namedtuple('Geo', ['country', 'lat', 'lon'])
 
 
 class Transmission:
@@ -87,101 +95,89 @@ class PeerStats(pud.Module):
         trhost = pud.config.get_required(self.config, 'transmission.host', str)
         trport = pud.config.get_required(self.config, 'transmission.port', int)
         self.tr = Transmission(trhost, trport)
-        pghost = pud.config.get_required(self.config, 'postgres.host', str)
-        pgport = pud.config.get_required(self.config, 'postgres.port', int)
-        pguser = pud.config.get_required(self.config, 'postgres.user', str)
-        pgpass = pud.config.get_required(self.config, 'postgres.pass', str)
-        pgdb = pud.config.get_required(self.config, 'postgres.db', str)
-        self.psql = ThreadedConnectionPool(1, 1, dbname=pgdb, user=pguser,
-                                           password=pgpass, host=pghost,
-                                           port=pgport)
+
+        chhost = pud.config.get_required(self.config, 'clickhouse.host', str)
+        chport = pud.config.get_required(self.config, 'clickhouse.port', int)
+        chdb = pud.config.get_required(self.config, 'clickhouse.db', str)
+        self.ch = Client(chhost, chport, chdb)
+
+        geofile = pud.config.get_required(self.config, 'geolite.file', str)
+        self.geodb = geoip2.database.Reader(geofile)
 
         self.clients = self.get_clients()
         self.torrents = self.get_torrents()
 
     def close(self):
-        self.psql.closeall()
+        self.ch.disconnect_connection()
+        self.geodb.close()
 
     @pud.cron('* * * * * */10')
     def update_stats(self):
         now = int(time.time())
+        peers = []
         for t in self.tr.get_torrents():
             for p in t.peers:
-                self.add_peer(now, t, p)
+                geo = self.geoinfo(p.ip)
+                peers.append({'time': now,
+                              'torrent': self.get_torrent_id(t),
+                              'ip': p.ip,
+                              'client': self.get_client_id(p.client),
+                              'speed': p.speed,
+                              'country': geo.country,
+                              'lat': geo.lat,
+                              'lon': geo.lon})
+
+        q = '''
+        INSERT INTO peers (
+            time, torrent, ip, client, speed, country, lat, lon
+        ) VALUES
+        '''
+        self.ch.execute(q, peers)
+
+    def get_torrent_id(self, torrent):
+        if torrent.hash not in self.torrents:
+            id = max(list(self.torrents.values()) + [0]) + 1
+            q = 'INSERT INTO torrents (id, hash, name, comment) VALUES'
+            self.ch.execute(q, [{'id': id,
+                                 'hash': torrent.hash,
+                                 'name': torrent.name,
+                                 'comment': torrent.comment}])
+            self.torrents[torrent.hash] = id
+
+        return self.torrents[torrent.hash]
+
+    def get_client_id(self, client):
+        if client not in self.clients:
+            id = max(list(self.clients.values()) + [0]) + 1
+            q = 'INSERT INTO clients (id, name) VALUES'
+            self.ch.execute(q, [{'id': id,
+                                 'name': client}])
+            self.clients[client] = id
+
+        return self.clients[client]
 
     def get_clients(self):
+        rows = self.ch.execute('SELECT id, name FROM clients')
         cls = {}
-        conn = self.psql.getconn()
-        try:
-            with conn:
-                with conn.cursor(cursor_factory=NamedTupleCursor) as cur:
-                    cur.execute('SELECT id, name FROM clients')
-                    for r in cur:
-                        cls[r.name] = r.id
-        finally:
-            self.psql.putconn(conn)
+        for r in rows:
+            cls[r[1]] = r[0]
 
         return cls
 
-    def add_client(self, name):
-        s = 'INSERT INTO clients (name) VALUES (%(name)s) RETURNING id'
-        conn = self.psql.getconn()
-        try:
-            with conn:
-                with conn.cursor(cursor_factory=NamedTupleCursor) as cur:
-                    cur.execute(s, {'name': name})
-                    return cur.fetchone().id
-        finally:
-            self.psql.putconn(conn)
-
     def get_torrents(self):
+        rows = self.ch.execute('SELECT id, hash FROM torrents')
         trs = {}
-        conn = self.psql.getconn()
-        try:
-            with conn:
-                with conn.cursor(cursor_factory=NamedTupleCursor) as cur:
-                    cur.execute('SELECT id, hash FROM torrents')
-                    for r in cur:
-                        trs[r.hash] = r.id
-        finally:
-            self.psql.putconn(conn)
+        for r in rows:
+            trs[r[1]] = r[0]
 
         return trs
 
-    def add_torrent(self, torrent):
-        s = '''
-        INSERT INTO torrents (hash, name, comment)
-        VALUES (%(hash)s, %(name)s, %(comment)s) RETURNING id
-        '''
-        conn = self.psql.getconn()
+    def geoinfo(self, ip):
         try:
-            with conn:
-                with conn.cursor(cursor_factory=NamedTupleCursor) as cur:
-                    cur.execute(s, {'hash': torrent.hash,
-                                    'name': torrent.name,
-                                    'comment': torrent.comment})
-                    return cur.fetchone().id
-        finally:
-            self.psql.putconn(conn)
+            g = self.geodb.city(ip)
 
-    def add_peer(self, time, torrent, peer):
-        if peer.client not in self.clients:
-            self.clients[peer.client] = self.add_client(peer.client)
-        if torrent.hash not in self.torrents:
-            self.torrents[torrent.hash] = self.add_torrent(torrent)
-
-        s = '''
-        INSERT INTO peers (time, torrent, ip, client, speed)
-        VALUES (%(time)s, %(torrent)s, %(ip)s, %(client)s, %(speed)s)
-        '''
-        conn = self.psql.getconn()
-        try:
-            with conn:
-                with conn.cursor(cursor_factory=NamedTupleCursor) as cur:
-                    cur.execute(s, {'time': time,
-                                    'torrent': self.torrents[torrent.hash],
-                                    'ip': peer.ip,
-                                    'client': self.clients[peer.client],
-                                    'speed': peer.speed})
-        finally:
-            self.psql.putconn(conn)
+            return Geo(g.country.iso_code,
+                       g.location.latitude,
+                       g.location.longitude)
+        except geoip2.errors.AddressNotFoundError:
+            return Geo('', 0, 0)

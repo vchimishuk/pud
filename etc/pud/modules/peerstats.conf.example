@@ -1,8 +1,7 @@
 module = "peerstats"
 transmission.host = "localhost"
 transmission.port = 9091
-postgres.host="localhost"
-postgres.port=5432
-postgres.user="vchimishuk"
-postgres.pass="system"
-postgres.db="peerstats"
+clickhouse.host="localhost"
+clickhouse.port=9000
+clickhouse.db="peerstats"
+geolite.file="/var/lib/geolite2-city/GeoLite2-City.mmdb"
