@@ -1,3 +1,9 @@
+pud (0.7.0) stable; urgency=low
+
+  * Store peerstats into ClickHouse instead of Postgresql.
+
+ -- Viacheslav Chimishuk <vchimishuk@yandex.ru>  Sun, 19 Mar 2023 18:55:00 +0200
+
 pud (0.6.0) stable; urgency=low
 
   * Add Pzem module.
